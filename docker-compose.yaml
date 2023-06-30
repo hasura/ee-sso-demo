@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  graphql-engine:
+    image: ${HGE_IMAGE}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    restart: always
+    environment:
+      HASURA_GRAPHQL_EE_LICENSE_KEY: ${HGE_EE_LICENSE_KEY}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HGE_ADMIN_SECRET}
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres?sslmode=disable
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_SSO_PROVIDERS: ${HGE_SSO_PROVIDERS}
+
+  dex:
+    image: ${DEX_IMAGE}
+    volumes:
+      - ./dex/config.docker.yaml:/etc/dex/config.docker.yaml
+      - ./saml/saml-ca.pem:/etc/dex/saml-ca.pem:ro
+    ports:
+      - "5556:5556"
+
+  # For LDAPS with certificate validation:
+  # How to extract the TLS certificate from the OpenLDAP container, and encode it for the Dex config (`rootCAData`):
+  #   $ docker-compose exec ldap cat /container/run/service/slapd/assets/certs/ca.crt | base64 -w 0
+  # But note this issue: https://github.com/osixia/docker-openldap/issues/506
+  ldap:
+    image: ${LDAP_IDP_IMAGE}
+    # Copying is required because the entrypoint modifies the *.ldif files.
+    # For verbose output, use:  command: ["--copy-service", "--loglevel", "debug"]
+    command: ["--copy-service"]
+    environment:
+      # Required if using LDAPS:
+      # Since Dex doesn't use a client TLS certificate, downgrade from "demand" to "try".
+      LDAP_TLS_VERIFY_CLIENT: try
+    # The hostname is required if using LDAPS with certificate validation.
+    # In Dex, use the same hostname (with port) for `connectors[].config.host`.
+    #hostname: YOUR-HOSTNAME
+    #
+    # https://github.com/osixia/docker-openldap#seed-ldap-database-with-ldif
+    # Option 1: Add custom seed file -> mount to         /container/service/slapd/assets/config/bootstrap/ldif/custom/
+    # Option 2: Overwrite default seed file -> mount to  /container/service/slapd/assets/config/bootstrap/ldif/
+    volumes:
+      - ./ldap/config-ldap.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/config-ldap.ldif
+    ports:
+      - "389"
+      - "636"
+
+volumes:
+  postgres_data:

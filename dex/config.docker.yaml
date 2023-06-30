@@ -1,0 +1,198 @@
+# The base path of dex and the external name of the OpenID Connect service.
+# This is the canonical URL that all clients MUST use to refer to dex. If a
+# path is provided, dex's HTTP service will listen at a non-root URL.
+issuer: http://localhost:5556/dex
+
+# The storage configuration determines where dex stores its state. Supported
+# options include SQL flavors and Kubernetes third party resources.
+#
+# See the documentation (https://dexidp.io/docs/storage/) for further information.
+storage:
+  type: memory
+
+# storage:
+#   type: sqlite3
+#   config:
+#     file: /var/dex/dex.db
+
+# Configuration for the HTTP endpoints.
+web:
+  http: 0.0.0.0:5556
+  allowedOrigins: ["*"]
+  # Uncomment for HTTPS options.
+  # https: 127.0.0.1:5554
+  # tlsCert: /etc/dex/tls.crt
+  # tlsKey: /etc/dex/tls.key
+
+# Configuration for dex appearance
+# frontend:
+#   issuer: dex
+#   logoURL: theme/logo.png
+#   dir: web/
+#   theme: light
+
+# Configuration for telemetry
+# telemetry:
+#   http: 0.0.0.0:5558
+#   enableProfiling: true
+
+# Uncomment this block to enable the gRPC API. This values MUST be different
+# from the HTTP endpoints.
+# grpc:
+#   addr: 127.0.0.1:5557
+#   tlsCert: examples/grpc-client/server.crt
+#   tlsKey: examples/grpc-client/server.key
+#   tlsClientCA: examples/grpc-client/ca.crt
+
+# Uncomment this block to enable configuration for the expiration time durations.
+# Is possible to specify units using only s, m and h suffixes.
+# expiry:
+#   deviceRequests: "5m"
+#   signingKeys: "6h"
+#   idTokens: "24h"
+#   refreshTokens:
+#     reuseInterval: "3s"
+#     validIfNotUsedFor: "2160h" # 90 days
+#     absoluteLifetime: "3960h" # 165 days
+
+# Options for controlling the logger.
+# logger:
+#   level: "debug"
+#   format: "text" # can also be "json"
+
+# Default values shown below
+oauth2:
+  # graphql-engine only accepts PKCE code flow
+  responseTypes: ["code"]
+# By default, Dex will ask for approval to share data with application
+# (approval for sharing data from connected IdP to Dex is separate process on IdP)
+#   skipApprovalScreen: false
+# If only one authentication method is enabled, the default behavior is to
+# go directly to it. For connected IdPs, this redirects the browser away
+# from application to upstream provider such as the Google login page
+#   alwaysShowLoginScreen: false
+# Uncomment the passwordConnector to use a specific connector for password grants
+#   passwordConnector: local
+
+# Instead of reading from an external storage, use this list of clients.
+#
+# If this option isn't chosen clients may be added through the gRPC API.
+staticClients:
+  - id: dex-login
+    redirectURIs:
+      - "http://localhost:8080/console/oauth2/callback"
+    name: "Hasura EE"
+    public: true
+
+connectors:
+  ## Use the mock callback mode for development only
+  ## Remove this mode in production environment
+  - type: mockCallback
+    id: mock
+    name: Mock
+
+  - type: saml
+    id: saml-auth0
+    name: SAML 2.0
+    config:
+      ssoURL: https://dev-4ru68uv20liq123w.us.auth0.com/samlp/9EcWpp0kGb92fXGBkBASkXpJxTWKSE8a
+      ca: /etc/dex/saml-ca.pem
+      # insecureSkipSignatureValidation: true
+      redirectURI: http://localhost:5556/dex/callback
+      usernameAttr: http://schemas.auth0.com/name
+      emailAttr: http://schemas.auth0.com/email
+      groupsAttr: http://schemas.auth0.com/roles
+      entityIssuer: urn:dev-4ru68uv20liq123w.us.auth0.com
+      # Optional: Issuer value expected in the SAML response.
+      # ssoIssuer:
+
+      # Optional: Requested format of the NameID.
+      #
+      # The NameID value is is mapped to the user ID of the user. This can be an
+      # abbreviated form of the full URI with just the last component. For example,
+      # if this value is set to "emailAddress" the format will resolve to:
+      #
+      #     urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress
+      #
+      # If no value is specified, this value defaults to:
+      #
+      #     urn:oasis:names:tc:SAML:2.0:nameid-format:persistent
+      #
+      # nameIDPolicyFormat: persistent
+
+  - type: ldap
+    name: OpenLDAP
+    id: ldap
+    config:
+      # The following configurations seem to work with OpenLDAP:
+      #
+      # 1) Plain LDAP, without TLS:
+      host: ldap:389
+      insecureNoSSL: true
+      #
+      # 2) LDAPS without certificate validation:
+      #host: localhost:636
+      #insecureNoSSL: false
+      #insecureSkipVerify: true
+      #
+      # 3) LDAPS with certificate validation:
+      #host: YOUR-HOSTNAME:636
+      #insecureNoSSL: false
+      #insecureSkipVerify: false
+      #rootCAData: 'CERT'
+      # ...where CERT="$( base64 -w 0 your-cert.crt )"
+
+      # This would normally be a read-only user.
+      bindDN: cn=admin,dc=example,dc=org
+      bindPW: admin
+
+      usernamePrompt: Email Address
+
+      userSearch:
+        baseDN: ou=People,dc=example,dc=org
+        filter: "(objectClass=person)"
+        username: mail
+        # "DN" (case sensitive) is a special attribute name. It indicates that
+        # this value should be taken from the entity's DN not an attribute on
+        # the entity.
+        idAttr: DN
+        emailAttr: mail
+        nameAttr: cn
+
+      groupSearch:
+        baseDN: ou=Groups,dc=example,dc=org
+        filter: "(objectClass=groupOfNames)"
+
+        userMatchers:
+          # A user is a member of a group when their DN matches
+          # the value of a "member" attribute on the group entity.
+          - userAttr: DN
+            groupAttr: member
+
+        # The group name should be the "cn" value.
+        nameAttr: cn
+# - type: google
+#   id: google
+#   name: Google
+#   config:
+#     issuer: https://accounts.google.com
+#     # Connector config values starting with a "$" will read from the environment.
+#     clientID: $GOOGLE_CLIENT_ID
+#     clientSecret: $GOOGLE_CLIENT_SECRET
+#     redirectURI: http://127.0.0.1:5556/dex/callback
+#     hostedDomains:
+#     - $GOOGLE_HOSTED_DOMAIN
+
+# Let dex keep a list of passwords which can be used to login to dex.
+# enablePasswordDB: true
+
+# A static list of passwords to login the end user. By identifying here, dex
+# won't look in its underlying storage for passwords.
+#
+# If this option isn't chosen users may be added through the gRPC API.
+# staticPasswords:
+#   - email: "admin@example.com"
+#     # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
+#     hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+#     username: "admin"
+#     userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"

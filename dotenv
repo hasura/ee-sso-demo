@@ -1,0 +1,11 @@
+POSTGRES_IMAGE=postgres:15
+POSTGRES_PASSWORD=postgrespassword
+
+HGE_IMAGE=hasura/graphql-engine:v2.27.0
+HGE_EE_LICENSE_KEY=
+HGE_ADMIN_SECRET=hasura
+HGE_SSO_PROVIDERS=[{"client_id": "9EcWpp0kGb92fXGBkBASkXpJxTWKSE8a","name": "Auth0 Login","authorization_url": "https://dev-4ru68uv20liq123w.us.auth0.com/authorize","request_token_url": "https://dev-4ru68uv20liq123w.us.auth0.com/oauth/token","scope": "openid offline_access","jwt_secret": {"type": "RS256","jwk_url": "https://dev-4ru68uv20liq123w.us.auth0.com/.well-known/jwks.json","issuer": "https://dev-4ru68uv20liq123w.us.auth0.com/"}},{"client_id": "dex-login","name": "Dex Login","authorization_url": "http://localhost:5556/dex/auth","request_token_url": "http://localhost:5556/dex/token","scope": "openid offline_access groups","admin_roles": ["ConsoleAdmin", "admin", "admins", "authors"],"jwt_secret": {"type": "RS256","jwk_url": "http://dex:5556/dex/keys","issuer": "http://localhost:5556/dex","claims_map": {"x-hasura-allowed-roles": { "path": "$.groups" },"x-hasura-default-role": { "path": "$.groups[0]" }}}}]
+
+DEX_IMAGE=dexidp/dex:v2.36.0
+
+LDAP_IDP_IMAGE=osixia/openldap:1.4.0
